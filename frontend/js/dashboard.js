@@ -12,6 +12,32 @@ if (!token) {
 let currentView = 'open';
 let currentFilter = 'OPEN'; // For all tasks view
 
+// Time synchronization
+let timeOffset = 0; // Offset between client and server time in milliseconds
+let sessionStartTime = Date.now(); // When the session started
+
+// Function to get synchronized current time
+function getCurrentTime() {
+    return new Date(Date.now() + timeOffset);
+}
+
+// Function to synchronize time with server
+async function syncTimeWithServer() {
+    try {
+        const response = await fetch('http://localhost:3000/api/time');
+        const data = await response.json();
+        const serverTime = new Date(data.serverTime).getTime();
+        const clientTime = Date.now();
+        timeOffset = serverTime - clientTime;
+        sessionStartTime = clientTime;
+        console.log(`Time synchronized. Offset: ${timeOffset}ms`);
+    } catch (error) {
+        console.error('Failed to sync time with server:', error);
+        // If sync fails, use local time (offset = 0)
+        timeOffset = 0;
+    }
+}
+
 // Get user info from token
 function getUserFromToken() {
     try {
@@ -58,22 +84,20 @@ const fetchOpenTasks = async () => {
             const taskCard = `
                 <div class="col-md-6 col-lg-4">
                     <div class="card task-card h-100">
-                        <div class="card-body">
-                            <div>
+                        <div class="card-body d-flex flex-column">
+                            <div class="flex-grow-1">
                                 <h5 class="card-title">${escapeHtml(task.title)} ${statusBadge}</h5>
                                 <p class="card-text text-muted">${escapeHtml(task.description.substring(0, 100))}${task.description.length > 100 ? '...' : ''}</p>
-                            </div>
-                            <div class="mt-4">
                                 <p class="reward mb-2">Reward: ${escapeHtml(task.reward)}</p>
                                 <p class="card-text"><small class="text-muted">Deadline: ${deadline}</small></p>
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="giver-info">
-                                        Giver: ${escapeHtml(task.giver_username)} 
-                                        ${task.giver_total_trophies ? `<span style="font-size: 0.9rem;">🏆 ${task.giver_total_trophies}</span>` : ''}
-                                        <span class="star">★</span> ${task.giving_rating.toFixed(1)}
-                                    </span>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="viewTask(${task.task_id})">View & Apply</button>
-                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <span class="giver-info">
+                                    Created by: ${escapeHtml(task.giver_username)} 
+                                    ${task.giver_trophies ? `<span style="font-size: 0.9rem;">🏆 ${task.giver_trophies}</span>` : ''}
+                                    <span class="star">★</span> ${task.giving_rating.toFixed(1)}
+                                </span>
+                                <button class="btn btn-sm btn-outline-primary" onclick="viewTask(${task.task_id})">View & Apply</button>
                             </div>
                         </div>
                     </div>
@@ -116,27 +140,25 @@ const fetchAllTasks = async (filter = null) => {
         tasks.forEach(task => {
             const deadline = new Date(task.deadline).toLocaleString();
             const statusBadge = getStatusBadge(task.status);
-            const isExpired = new Date(task.deadline) < new Date() && task.status === 'OPEN';
+            const isExpired = new Date(task.deadline) < getCurrentTime() && task.status === 'OPEN';
             const taskCard = `
                 <div class="col-md-6 col-lg-4">
                     <div class="card task-card h-100">
-                        <div class="card-body">
-                            <div>
+                        <div class="card-body d-flex flex-column">
+                            <div class="flex-grow-1">
                                 <h5 class="card-title">${escapeHtml(task.title)} ${statusBadge}</h5>
                                 <p class="card-text text-muted">${escapeHtml(task.description.substring(0, 100))}${task.description.length > 100 ? '...' : ''}</p>
-                            </div>
-                            <div class="mt-4">
                                 <p class="reward mb-2">Reward: ${escapeHtml(task.reward)}</p>
-                                <p class="card-text"><small class="text-muted">Deadline: ${deadline}</small></p>
-                                ${isExpired ? '<p class="card-text"><small class="text-danger">Expired</small></p>' : ''}
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <span class="giver-info">
-                                        Giver: ${escapeHtml(task.giver_username)} 
-                                        ${task.giver_total_trophies ? `<span style="font-size: 0.9rem;">🏆 ${task.giver_total_trophies}</span>` : ''}
-                                        <span class="star">★</span> ${task.giving_rating.toFixed(1)}
-                                    </span>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="viewTask(${task.task_id})">View</button>
-                                </div>
+                                <p class="card-text mb-0"><small class="text-muted">Deadline: ${deadline}</small></p>
+                                ${isExpired ? '<p class="card-text mb-0"><small class="text-danger">Expired</small></p>' : '<div style="height: 1.25rem;"></div>'}
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <span class="giver-info">
+                                    Created by: ${escapeHtml(task.giver_username)} 
+                                    ${task.giver_trophies ? `<span style="font-size: 0.9rem;">🏆 ${task.giver_trophies}</span>` : ''}
+                                    <span class="star">★</span> ${task.giving_rating.toFixed(1)}
+                                </span>
+                                <button class="btn btn-sm btn-outline-primary" onclick="viewTask(${task.task_id})">View</button>
                             </div>
                         </div>
                     </div>
@@ -172,15 +194,15 @@ const fetchMyGivenTasks = async () => {
             const taskCard = `
                 <div class="col-md-6 col-lg-4">
                     <div class="card task-card h-100">
-                        <div class="card-body">
-                            <div>
+                        <div class="card-body d-flex flex-column">
+                            <div class="flex-grow-1">
                                 <h5 class="card-title">${escapeHtml(task.title)} ${statusBadge}</h5>
                                 <p class="card-text text-muted">${escapeHtml(task.description.substring(0, 80))}${task.description.length > 80 ? '...' : ''}</p>
-                            </div>
-                            <div class="mt-4">
                                 <p class="reward mb-2">Reward: ${escapeHtml(task.reward)}</p>
                                 <p class="card-text"><small class="text-muted">Deadline: ${deadline}</small></p>
-                                ${task.acceptor_username ? `<p class="card-text"><small>Acceptor: ${escapeHtml(task.acceptor_username)}</small></p>` : ''}
+                                ${task.acceptor_username ? `<p class="card-text mb-0"><small>Acceptor: ${escapeHtml(task.acceptor_username)}</small></p>` : '<div style="height: 1.25rem;"></div>'}
+                            </div>
+                            <div class="mt-3">
                                 <button class="btn btn-sm btn-primary w-100 mb-2" onclick="manageTask(${task.task_id})">Manage Task</button>
                                 <button class="btn btn-sm btn-outline-secondary w-100" onclick="duplicateTask(${task.task_id})">Duplicate Task</button>
                             </div>
@@ -200,26 +222,49 @@ const fetchMyGivenTasks = async () => {
 const fetchMyAcceptedTasks = async () => {
     try {
         tasksGrid = document.getElementById('tasks-grid');
-        const res = await fetch(`${API_URL}/tasks/my/accepted`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (!res.ok) throw new Error('Failed to fetch accepted tasks');
-        const tasks = await res.json();
+        
+        // Fetch both accepted tasks and withdrawn/removed tasks
+        const [acceptedRes, withdrawnRes] = await Promise.all([
+            fetch(`${API_URL}/tasks/my/accepted`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            }),
+            fetch(`${API_URL}/tasks/my/withdrawn-removed`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+        ]);
+        
+        if (!acceptedRes.ok) throw new Error('Failed to fetch accepted tasks');
+        
+        const acceptedTasks = await acceptedRes.json();
+        const withdrawnTasks = withdrawnRes.ok ? await withdrawnRes.json() : [];
+        
+        // Combine and mark withdrawn/removed tasks
+        const allTasks = [
+            ...acceptedTasks,
+            ...withdrawnTasks.map(task => ({ ...task, is_withdrawn_removed: true }))
+        ];
 
         tasksGrid.innerHTML = '';
 
-        if (tasks.length === 0) {
+        if (allTasks.length === 0) {
             tasksGrid.innerHTML = '<div class="col-12"><p class="text-center text-muted">No accepted tasks yet</p></div>';
             return;
         }
 
-        for (const task of tasks) {
+        for (const task of allTasks) {
             const deadline = new Date(task.deadline).toLocaleString();
-            const statusBadge = getStatusBadge(task.status);
+            
+            // Use application_status for withdrawn/removed tasks, show "To Do" for IN_PROGRESS
+            let displayStatus = task.is_withdrawn_removed ? task.application_status : task.status;
+            if (displayStatus === 'IN_PROGRESS') {
+                displayStatus = 'TO_DO';
+            }
+            const statusBadge = getStatusBadge(displayStatus);
             
             // Check if user has already rated
             let hasRated = false;
-            if (task.status === 'COMPLETED') {
+            // Allow rating for COMPLETED, CANCELLED, WITHDRAWN, and REMOVED tasks
+            if (task.status === 'COMPLETED' || task.status === 'CANCELLED' || task.is_withdrawn_removed) {
                 const ratingRes = await fetch(`${API_URL}/tasks/${task.task_id}/has-rated`, {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
@@ -232,17 +277,20 @@ const fetchMyAcceptedTasks = async () => {
             const taskCard = `
                 <div class="col-md-6 col-lg-4">
                     <div class="card task-card h-100">
-                        <div class="card-body">
-                            <div>
+                        <div class="card-body d-flex flex-column">
+                            <div class="flex-grow-1">
                                 <h5 class="card-title">${escapeHtml(task.title)} ${statusBadge}</h5>
                                 <p class="card-text text-muted">${escapeHtml(task.description.substring(0, 80))}${task.description.length > 80 ? '...' : ''}</p>
-                            </div>
-                            <div class="mt-4">
                                 <p class="reward mb-2">Reward: ${escapeHtml(task.reward)}</p>
                                 <p class="card-text"><small class="text-muted">Deadline: ${deadline}</small></p>
                                 <p class="card-text"><small>Giver: ${escapeHtml(task.giver_username)} (${task.giver_phone})</small></p>
+                            </div>
+                            <div class="mt-3">
+                                ${task.status === 'IN_PROGRESS' && !task.is_withdrawn_removed ? `<button class="btn btn-sm btn-info w-100 mb-2" onclick="manageTask(${task.task_id})">Manage Task</button>` : ''}
                                 ${task.status === 'COMPLETED' && !hasRated ? `<button class="btn btn-sm btn-success w-100" onclick="rateTask(${task.task_id}, ${task.giver_id})">Rate Task Giver</button>` : ''}
-                                ${task.status === 'COMPLETED' && hasRated ? `<p class="text-success text-center mb-0"><i class="bi bi-check-circle-fill"></i> Already Rated</p>` : ''}
+                                ${task.status === 'CANCELLED' && !hasRated ? `<button class="btn btn-sm btn-warning w-100" onclick="rateTask(${task.task_id}, ${task.giver_id})">Rate Task Giver (Cancelled)</button>` : ''}
+                                ${task.is_withdrawn_removed && !hasRated ? `<button class="btn btn-sm btn-warning w-100" onclick="rateTask(${task.task_id}, ${task.giver_id})">Rate Task Giver</button>` : ''}
+                                ${(task.status === 'COMPLETED' || task.status === 'CANCELLED' || task.is_withdrawn_removed) && hasRated ? `<p class="text-success text-center mb-0"><i class="bi bi-check-circle-fill"></i> Already Rated</p>` : ''}
                             </div>
                         </div>
                     </div>
@@ -256,45 +304,102 @@ const fetchMyAcceptedTasks = async () => {
     }
 };
 
-// Function to fetch and display user's applications
-const fetchMyApplications = async () => {
+// Function to fetch and display user's applications with filter
+const fetchMyApplications = async (filter = 'ALL') => {
     try {
         tasksGrid = document.getElementById('tasks-grid');
         const res = await fetch(`${API_URL}/tasks/my/applications`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Failed to fetch applications');
-        const applications = await res.json();
+        let applications = await res.json();
+
+        // Update filter buttons
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.filter === filter) {
+                btn.classList.add('active');
+            }
+        });
+
+        // Filter applications based on status
+        if (filter !== 'ALL') {
+            applications = applications.filter(app => {
+                if (filter === 'TO_DO') {
+                    // Show accepted applications where task is IN_PROGRESS
+                    return app.status === 'ACCEPTED' && app.task_status === 'IN_PROGRESS';
+                } else if (filter === 'COMPLETED') {
+                    // Show accepted applications where task is COMPLETED
+                    return app.status === 'ACCEPTED' && app.task_status === 'COMPLETED';
+                } else if (filter === 'REMOVED') {
+                    return app.status === 'REMOVED';
+                } else if (filter === 'REJECTED') {
+                    return app.status === 'REJECTED';
+                } else if (filter === 'WITHDRAWN') {
+                    return app.status === 'WITHDRAWN';
+                }
+                return false;
+            });
+        }
 
         tasksGrid.innerHTML = '';
         if (applications.length === 0) {
-            tasksGrid.innerHTML = '<div class="col-12"><p class="text-center text-muted">You haven\'t applied to any tasks yet</p></div>';
+            tasksGrid.innerHTML = '<div class="col-12"><p class="text-center text-muted">No applications found</p></div>';
             return;
         }
 
-        applications.forEach(app => {
+        for (const app of applications) {
             const deadline = new Date(app.deadline).toLocaleString();
-            const statusBadge = getStatusBadge(app.status);
+            
+            // Determine display status: show "To Do" for accepted + in_progress
+            let displayStatus = app.status;
+            if (app.status === 'ACCEPTED' && app.task_status === 'IN_PROGRESS') {
+                displayStatus = 'TO_DO';
+            } else if (app.status === 'ACCEPTED' && app.task_status === 'COMPLETED') {
+                displayStatus = 'COMPLETED';
+            } else if (app.status === 'ACCEPTED' && app.task_status === 'CANCELLED') {
+                displayStatus = 'CANCELLED';
+            }
+            
+            const statusBadge = getStatusBadge(displayStatus);
+            
+            // Check if user can rate (for removed/withdrawn cases)
+            let canRate = false;
+            let hasRated = false;
+            if (app.status === 'REMOVED' || app.status === 'WITHDRAWN') {
+                const ratingRes = await fetch(`${API_URL}/tasks/${app.task_id}/has-rated`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (ratingRes.ok) {
+                    const data = await ratingRes.json();
+                    hasRated = data.has_rated;
+                    canRate = !hasRated;
+                }
+            }
+            
             const taskCard = `
                 <div class="col-md-6 col-lg-4">
                     <div class="card task-card h-100">
-                        <div class="card-body">
-                            <div>
+                        <div class="card-body d-flex flex-column">
+                            <div class="flex-grow-1">
                                 <h5 class="card-title">${escapeHtml(app.title)} ${statusBadge}</h5>
                                 <p class="card-text text-muted">${escapeHtml(app.description.substring(0, 80))}${app.description.length > 80 ? '...' : ''}</p>
-                            </div>
-                            <div class="mt-4">
                                 <p class="reward mb-2">Reward: ${escapeHtml(app.reward)}</p>
                                 <p class="card-text"><small class="text-muted">Deadline: ${deadline}</small></p>
                                 <p class="card-text"><small>Giver: ${escapeHtml(app.giver_username)}</small></p>
-                                <p class="card-text"><small>Applied: ${new Date(app.applied_at).toLocaleDateString()}</small></p>
+                                <p class="card-text mb-0"><small>Applied: ${new Date(app.applied_at).toLocaleDateString()}</small></p>
+                            </div>
+                            <div class="mt-3">
+                                ${displayStatus === 'TO_DO' ? `<button class="btn btn-sm btn-info w-100" onclick="viewComments(${app.task_id})">View Task & Chat</button>` : ''}
+                                ${canRate ? `<button class="btn btn-sm btn-warning w-100" onclick="rateTask(${app.task_id}, ${app.giver_id})">Rate Giver</button>` : ''}
+                                ${hasRated ? `<p class="text-success text-center mb-0"><i class="bi bi-check-circle-fill"></i> Already Rated</p>` : ''}
                             </div>
                         </div>
                     </div>
                 </div>
             `;
             tasksGrid.innerHTML += taskCard;
-        });
+        }
     } catch (err) {
         console.error(err);
         tasksGrid.innerHTML = '<div class="col-12"><p class="text-center text-danger">Error loading applications</p></div>';
@@ -310,17 +415,31 @@ async function viewTask(taskId) {
         if (!res.ok) throw new Error('Failed to fetch task details');
         const data = await res.json();
         const task = data.task;
+        const applications = data.applications || [];
 
         const deadline = new Date(task.deadline).toLocaleString();
         const statusBadge = getStatusBadge(task.status);
+        
+        // Check if current user is the giver
+        const isOwnTask = task.giver_id === currentUser.id;
+        
+        // Check if user has already applied or was removed
+        const hasApplied = applications.some(app => 
+            app.applicant_id === currentUser.id && 
+            (app.status === 'PENDING' || app.status === 'ACCEPTED')
+        );
+        const wasRemoved = applications.some(app => 
+            app.applicant_id === currentUser.id && app.status === 'REMOVED'
+        );
+        
         const modalContent = `
             <h5>${escapeHtml(task.title)} ${statusBadge}</h5>
             <p class="text-muted">${escapeHtml(task.description)}</p>
             <hr>
             <p><strong>Reward:</strong> ${escapeHtml(task.reward)}</p>
             <p><strong>Deadline:</strong> ${deadline}</p>
-            <p><strong>Giver:</strong> ${escapeHtml(task.giver_username)} 
-               ${task.giver_total_trophies ? `🏆 ${task.giver_total_trophies}` : ''}
+            <p><strong>Created by:</strong> ${escapeHtml(task.giver_username)} 
+               ${task.giver_trophies ? `🏆 ${task.giver_trophies}` : ''}
                <span class="star">★</span> ${task.giving_rating.toFixed(1)}</p>
             <p><strong>Contact:</strong> ${task.giver_phone}</p>
             <hr>
@@ -332,7 +451,20 @@ async function viewTask(taskId) {
         document.getElementById('taskDetailContent').innerHTML = modalContent;
         
         const applyBtn = document.getElementById('applyTaskBtn');
-        applyBtn.onclick = () => applyToTask(taskId);
+        
+        // Show/hide apply button based on conditions
+        if (isOwnTask) {
+            applyBtn.style.display = 'none';
+        } else if (task.status !== 'OPEN') {
+            applyBtn.style.display = 'none';
+        } else if (hasApplied) {
+            applyBtn.style.display = 'none';
+        } else if (wasRemoved) {
+            applyBtn.style.display = 'none';
+        } else {
+            applyBtn.style.display = 'block';
+            applyBtn.onclick = () => applyToTask(taskId);
+        }
         
         const modal = new bootstrap.Modal(document.getElementById('taskDetailModal'));
         modal.show();
@@ -361,7 +493,7 @@ async function applyToTask(taskId) {
 
         alert('Application submitted successfully!');
         bootstrap.Modal.getInstance(document.getElementById('taskDetailModal')).hide();
-        fetchOpenTasks();
+        loadView(currentView, currentFilter);
     } catch (err) {
         console.error(err);
         alert('Error submitting application');
@@ -422,12 +554,17 @@ async function manageTask(taskId) {
 
         const deadline = new Date(task.deadline).toLocaleString();
         const statusBadge = getStatusBadge(task.status);
+        
+        // Check if current user is the acceptor
+        const isAcceptor = task.acceptor_id === currentUser.id;
+        
         const modalContent = `
             <h5>${escapeHtml(task.title)} ${statusBadge}</h5>
             <p class="text-muted">${escapeHtml(task.description)}</p>
             <hr>
             <p><strong>Reward:</strong> ${escapeHtml(task.reward)}</p>
             <p><strong>Deadline:</strong> ${deadline}</p>
+            ${task.acceptor_username ? `<p><strong>Acceptor:</strong> ${escapeHtml(task.acceptor_username)}</p>` : ''}
             <hr>
             <div class="mb-3">
                 <button class="btn btn-info w-100" onclick="viewComments(${taskId})">
@@ -443,8 +580,14 @@ async function manageTask(taskId) {
                     <i class="bi bi-pencil"></i> Edit Task (Extend Deadline)
                 </button>
             ` : ''}
-            ${task.status === 'IN_PROGRESS' ? `
+            ${task.status === 'IN_PROGRESS' && !isAcceptor ? `
                 <button class="btn btn-success w-100 mb-2" onclick="completeTask(${taskId})">Mark as Completed</button>
+            ` : ''}
+            ${task.status === 'IN_PROGRESS' && !isAcceptor && task.acceptor_id ? `
+                <button class="btn btn-warning w-100 mb-2" onclick="removeAcceptor(${taskId})">Remove Acceptor</button>
+            ` : ''}
+            ${task.status === 'IN_PROGRESS' && isAcceptor ? `
+                <button class="btn btn-warning w-100 mb-2" onclick="cantDoTask(${taskId})">Can't Do It</button>
             ` : ''}
             ${task.status === 'COMPLETED' && task.acceptor_id && !hasRated ? `
                 <button class="btn btn-primary w-100 mb-2" onclick="rateTask(${taskId}, ${task.acceptor_id})">Rate Task Acceptor</button>
@@ -487,7 +630,7 @@ async function acceptApplication(taskId, applicantId) {
 
         alert('Application accepted!');
         bootstrap.Modal.getInstance(document.getElementById('manageTaskModal')).hide();
-        fetchMyGivenTasks();
+        manageTask(taskId); // Refresh the modal
     } catch (err) {
         console.error(err);
         alert('Error accepting application');
@@ -542,7 +685,7 @@ async function completeTask(taskId) {
 
         alert('Task marked as completed!');
         bootstrap.Modal.getInstance(document.getElementById('manageTaskModal')).hide();
-        fetchMyGivenTasks();
+        loadView(currentView, currentFilter);
     } catch (err) {
         console.error(err);
         alert('Error completing task');
@@ -570,10 +713,82 @@ async function cancelTask(taskId) {
 
         alert('Task cancelled');
         bootstrap.Modal.getInstance(document.getElementById('manageTaskModal')).hide();
-        fetchMyGivenTasks();
+        loadView(currentView, currentFilter);
     } catch (err) {
         console.error(err);
         alert('Error cancelling task');
+    }
+}
+
+// Can't do it - Acceptor releases themselves from task
+async function cantDoTask(taskId) {
+    const reason = prompt('Are you sure you can\'t complete this task?\n\nPlease provide a reason (required):');
+    
+    if (reason === null) return; // User clicked cancel
+    
+    if (!reason || reason.trim() === '') {
+        alert('Reason is required');
+        return;
+    }
+    
+    try {
+        const res = await fetch(`${API_URL}/tasks/${taskId}/cant-do`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ reason: reason.trim() })
+        });
+        const data = await res.json();
+        
+        if (!res.ok) {
+            alert(data.msg || 'Failed to release task');
+            return;
+        }
+
+        alert('Task released successfully. The giver can now rate you.');
+        bootstrap.Modal.getInstance(document.getElementById('manageTaskModal')).hide();
+        loadView(currentView, currentFilter);
+    } catch (err) {
+        console.error(err);
+        alert('Error releasing task');
+    }
+}
+
+// Remove acceptor - Giver removes the acceptor from task
+async function removeAcceptor(taskId) {
+    const reason = prompt('Are you sure you want to remove the acceptor?\n\nPlease provide a reason (required):');
+    
+    if (reason === null) return; // User clicked cancel
+    
+    if (!reason || reason.trim() === '') {
+        alert('Reason is required');
+        return;
+    }
+    
+    try {
+        const res = await fetch(`${API_URL}/tasks/${taskId}/remove-acceptor`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ reason: reason.trim() })
+        });
+        const data = await res.json();
+        
+        if (!res.ok) {
+            alert(data.msg || 'Failed to remove acceptor');
+            return;
+        }
+
+        alert('Acceptor removed successfully. They can now rate you.');
+        bootstrap.Modal.getInstance(document.getElementById('manageTaskModal')).hide();
+        loadView(currentView, currentFilter);
+    } catch (err) {
+        console.error(err);
+        alert('Error removing acceptor');
     }
 }
 
@@ -643,8 +858,8 @@ async function duplicateTask(taskId) {
         document.getElementById('task-description').value = task.description;
         document.getElementById('task-reward').value = task.reward;
         
-        // Set deadline to tomorrow
-        const tomorrow = new Date();
+        // Set deadline to tomorrow using synchronized time
+        const tomorrow = getCurrentTime();
         tomorrow.setDate(tomorrow.getDate() + 1);
         document.getElementById('task-deadline').value = tomorrow.toISOString().slice(0, 16);
 
@@ -723,7 +938,7 @@ function renderComment(comment, level = 0) {
     const isTaskGiver = comment.user_id === comment.giver_id;
     const timestamp = new Date(comment.created_at).toLocaleString();
     const marginLeft = level * 30;
-    const trophies = comment.total_trophies || 0;
+    const trophies = comment.trophies || 0;
     
     let html = `
         <div class="comment-item mb-3 p-3 border rounded" style="margin-left: ${marginLeft}px; ${level > 0 ? 'border-left: 3px solid var(--primary-color);' : ''}">
@@ -731,7 +946,7 @@ function renderComment(comment, level = 0) {
                 <div>
                     <strong>${escapeHtml(comment.username)}</strong>
                     ${trophies > 0 ? `<span class="ms-1">🏆 ${trophies}</span>` : ''}
-                    ${isTaskGiver ? '<span class="badge bg-primary ms-2">Task Giver</span>' : ''}
+                    ${isTaskGiver ? '<span class="badge bg-primary ms-2">Task Creator</span>' : ''}
                 </div>
                 <small class="text-muted">${timestamp}</small>
             </div>
@@ -993,7 +1208,7 @@ async function loadProfileView() {
                         <div class="col">
                             <h2 class="text-white mb-1" style="font-weight: 700;">
                                 ${data.username} 
-                                <span class="ms-2" style="font-size: 1.2rem;">🏆 ${(data.trophies_given || 0) + (data.trophies_accepted || 0)}</span>
+                                <span class="ms-2" style="font-size: 1.2rem;">🏆 ${data.trophies || 0}</span>
                             </h2>
                             <p class="text-white mb-2" style="opacity: 0.9;">
                                 <i class="bi bi-telephone-fill me-2"></i>${data.phone_number || 'N/A'}
@@ -1012,18 +1227,11 @@ async function loadProfileView() {
 
                 <!-- Trophies -->
                 <div class="row mb-4">
-                    <div class="col-md-6 mb-3">
+                    <div class="col-12 mb-3">
                         <div class="stats-card" style="background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); color: #000;">
-                            <h5 class="mb-3" style="font-weight: 700;">🏆 Giving Trophies</h5>
-                            <div class="stats-number" style="color: #000 !important; -webkit-text-fill-color: #000 !important; font-size: 3.5rem; background: none;">${data.trophies_given || 0}</div>
-                            <div class="stats-label" style="color: #333;">Completed as Task Giver</div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="stats-card" style="background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%); color: #000;">
-                            <h5 class="mb-3" style="font-weight: 700;">🏆 Accepting Trophies</h5>
-                            <div class="stats-number" style="color: #000 !important; -webkit-text-fill-color: #000 !important; font-size: 3.5rem; background: none;">${data.trophies_accepted || 0}</div>
-                            <div class="stats-label" style="color: #333;">Completed as Task Acceptor</div>
+                            <h5 class="mb-3" style="font-weight: 700;">🏆 Trophies</h5>
+                            <div class="stats-number" style="color: #000 !important; -webkit-text-fill-color: #000 !important; font-size: 3.5rem; background: none;">${data.trophies || 0}</div>
+                            <div class="stats-label" style="color: #333;">Tasks Completed Successfully</div>
                         </div>
                     </div>
                 </div>
@@ -1032,7 +1240,7 @@ async function loadProfileView() {
                 <div class="row mb-4">
                     <div class="col-md-6 mb-3">
                         <div class="stats-card">
-                            <h5 class="mb-3" style="color: var(--text-color);">Giving Rating</h5>
+                            <h5 class="mb-3" style="color: var(--text-color);">Rating as Task Creator</h5>
                             <div class="d-flex align-items-center justify-content-center">
                                 <div class="stats-number me-3" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${data.giving_rating.toFixed(1)}</div>
                                 <div class="text-start">
@@ -1046,7 +1254,7 @@ async function loadProfileView() {
                     </div>
                     <div class="col-md-6 mb-3">
                         <div class="stats-card">
-                            <h5 class="mb-3" style="color: var(--text-color);">Accepting Rating</h5>
+                            <h5 class="mb-3" style="color: var(--text-color);">Rating as Task Doer</h5>
                             <div class="d-flex align-items-center justify-content-center">
                                 <div class="stats-number me-3" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${data.accepting_rating.toFixed(1)}</div>
                                 <div class="text-start">
@@ -1243,6 +1451,21 @@ function generateStars(rating) {
     return stars;
 }
 
+// Helper function to get medal for leaderboard rank
+function getMedalForRank(rank) {
+    if (rank === 1) return '🥇';
+    if (rank === 2) return '🥈';
+    if (rank === 3) return '🥉';
+    return '';
+}
+
+// Helper function to display rating with stars and optional medal
+function displayRatingWithMedal(rating, rank = null) {
+    const stars = generateStars(rating);
+    const medal = rank ? getMedalForRank(rank) : '';
+    return medal ? `${stars} ${medal}` : stars;
+}
+
 // Load user ratings
 async function loadUserRatings() {
     try {
@@ -1310,47 +1533,25 @@ async function loadLeaderboardView() {
     const container = document.getElementById('taskContainer');
     container.innerHTML = `
         <div class="leaderboard-section fade-in">
-            <ul class="nav nav-tabs mb-4" id="leaderboardTab" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="overall-tab" data-bs-toggle="tab" data-bs-target="#overall" type="button" role="tab" onclick="loadLeaderboard('overall')">
-                        Overall
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="giver-tab" data-bs-toggle="tab" data-bs-target="#giver" type="button" role="tab" onclick="loadLeaderboard('giver')">
-                        Top Givers
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="acceptor-tab" data-bs-toggle="tab" data-bs-target="#acceptor" type="button" role="tab" onclick="loadLeaderboard('acceptor')">
-                        Top Acceptors
-                    </button>
-                </li>
-            </ul>
-            
-            <div class="tab-content" id="leaderboardTabContent">
-                <div class="tab-pane fade show active" id="overall" role="tabpanel"></div>
-                <div class="tab-pane fade" id="giver" role="tabpanel"></div>
-                <div class="tab-pane fade" id="acceptor" role="tabpanel"></div>
-            </div>
+            <h3 class="mb-4">🏆 Leaderboard - Top Performers</h3>
+            <div id="leaderboard-content"></div>
         </div>
     `;
     
-    // Load initial leaderboard
-    loadLeaderboard('overall');
+    // Load leaderboard
+    loadLeaderboard();
 }
 
-async function loadLeaderboard(category) {
+async function loadLeaderboard() {
     try {
-        const res = await fetch(`${API_URL}/auth/leaderboard?category=${category}`, {
+        const res = await fetch(`${API_URL}/auth/leaderboard`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
         if (!res.ok) throw new Error('Failed to load leaderboard');
         
         const users = await res.json();
-        const containerId = category === 'overall' ? 'overall' : category === 'giver' ? 'giver' : 'acceptor';
-        const container = document.getElementById(containerId);
+        const container = document.getElementById('leaderboard-content');
         
         if (users.length === 0) {
             container.innerHTML = '<p class="text-muted text-center">No data available yet</p>';
@@ -1363,6 +1564,7 @@ async function loadLeaderboard(category) {
             const position = index + 1;
             let positionBadge = '';
             let cardClass = '';
+            let medal = getMedalForRank(position);
             
             if (position === 1) {
                 positionBadge = '🥇';
@@ -1377,19 +1579,9 @@ async function loadLeaderboard(category) {
                 positionBadge = `#${position}`;
             }
             
-            let trophyDisplay = '';
-            let ratingDisplay = '';
-            
-            if (category === 'overall') {
-                trophyDisplay = `🏆 ${user.trophy_count}`;
-                ratingDisplay = `⭐ ${((user.giving_rating + user.accepting_rating) / 2).toFixed(1)}`;
-            } else if (category === 'giver') {
-                trophyDisplay = `🏆 ${user.trophies_given}`;
-                ratingDisplay = `⭐ ${user.giving_rating.toFixed(1)}`;
-            } else {
-                trophyDisplay = `🏆 ${user.trophies_accepted}`;
-                ratingDisplay = `⭐ ${user.accepting_rating.toFixed(1)}`;
-            }
+            const trophyDisplay = `🏆 ${user.trophies || 0}`;
+            const avgRating = ((user.giving_rating + user.accepting_rating) / 2).toFixed(1);
+            const starsWithMedal = medal ? `${generateStars(avgRating)} ${medal}` : generateStars(avgRating);
             
             html += `
                 <div class="stats-card mb-3 ${cardClass}" style="border-width: 2px;">
@@ -1404,7 +1596,7 @@ async function loadLeaderboard(category) {
                                 </h5>
                                 <div>
                                     <span class="me-3" style="font-size: 1.1rem;">${trophyDisplay}</span>
-                                    <span style="font-size: 1.1rem;">${ratingDisplay}</span>
+                                    <span style="font-size: 1.1rem;">${starsWithMedal}</span>
                                 </div>
                             </div>
                         </div>
@@ -1418,8 +1610,10 @@ async function loadLeaderboard(category) {
         
     } catch (err) {
         console.error('Error loading leaderboard:', err);
-        const container = document.getElementById(category);
-        container.innerHTML = '<p class="text-danger">Error loading leaderboard</p>';
+        const container = document.getElementById('leaderboard-content');
+        if (container) {
+            container.innerHTML = '<p class="text-danger">Error loading leaderboard</p>';
+        }
     }
 }
 
@@ -1429,14 +1623,22 @@ function loadView(view, filter = null) {
     
     // Update active nav item
     document.querySelectorAll('.view-nav').forEach(el => el.classList.remove('active'));
-    document.querySelector(`[data-view="${view}"]`).classList.add('active');
+    const navItem = document.querySelector(`[data-view="${view}"]`);
+    if (navItem) navItem.classList.add('active');
     
     // Show/hide filter buttons
-    const filterContainer = document.getElementById('filterContainer');
+    const filterContainerAllTasks = document.getElementById('filterContainerAllTasks');
+    const filterContainerApplications = document.getElementById('filterContainerApplications');
+    
     if (view === 'allTasks') {
-        filterContainer.style.display = 'block';
+        filterContainerAllTasks.style.display = 'block';
+        filterContainerApplications.style.display = 'none';
+    } else if (view === 'myApplications') {
+        filterContainerAllTasks.style.display = 'none';
+        filterContainerApplications.style.display = 'block';
     } else {
-        filterContainer.style.display = 'none';
+        filterContainerAllTasks.style.display = 'none';
+        filterContainerApplications.style.display = 'none';
     }
     
     // Update heading
@@ -1444,7 +1646,6 @@ function loadView(view, filter = null) {
         'open': 'Open Tasks',
         'allTasks': 'All Tasks',
         'myGiven': 'My Given Tasks',
-        'myAccepted': 'My Accepted Tasks',
         'myApplications': 'My Applications',
         'profile': 'My Profile',
         'leaderboard': '🏆 Leaderboard'
@@ -1474,11 +1675,8 @@ function loadView(view, filter = null) {
         case 'myGiven':
             fetchMyGivenTasks();
             break;
-        case 'myAccepted':
-            fetchMyAcceptedTasks();
-            break;
         case 'myApplications':
-            fetchMyApplications();
+            fetchMyApplications(filter || 'ALL');
             break;
         case 'profile':
             loadProfileView();
@@ -1533,17 +1731,23 @@ function getStatusBadge(status) {
     const badges = {
         'OPEN': '<span class="badge bg-success">Open</span>',
         'IN_PROGRESS': '<span class="badge bg-warning">In Progress</span>',
+        'TO_DO': '<span class="badge bg-info">To Do</span>',
         'COMPLETED': '<span class="badge bg-primary">Completed</span>',
         'CANCELLED': '<span class="badge bg-secondary">Cancelled</span>',
         'PENDING': '<span class="badge bg-info">Pending</span>',
         'ACCEPTED': '<span class="badge bg-success">Accepted</span>',
-        'REJECTED': '<span class="badge bg-danger">Rejected</span>'
+        'REJECTED': '<span class="badge bg-danger">Rejected</span>',
+        'WITHDRAWN': '<span class="badge bg-warning">Withdrawn</span>',
+        'REMOVED': '<span class="badge bg-danger">Removed</span>'
     };
     return badges[status] || '';
 }
 
 // Initial load
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
+    // Sync time with server first
+    await syncTimeWithServer();
+    
     autoCancelExpiredTasks();
     loadView('allTasks', 'OPEN'); // Load "All Tasks" view with "OPEN" filter by default
     

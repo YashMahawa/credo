@@ -90,15 +90,17 @@ const initDb = () => {
             )
         `);
         
-        // Add trophies columns if they don't exist (migration)
-        db.run(`ALTER TABLE users ADD COLUMN trophies_given INTEGER DEFAULT 0`, (err) => {
+        // Add trophies column (tasks completed successfully)
+        db.run(`ALTER TABLE users ADD COLUMN trophies INTEGER DEFAULT 0`, (err) => {
             if (err && !err.message.includes('duplicate column')) {
-                console.error('Error adding trophies_given:', err.message);
+                console.error('Error adding trophies:', err.message);
             }
         });
-        db.run(`ALTER TABLE users ADD COLUMN trophies_accepted INTEGER DEFAULT 0`, (err) => {
-            if (err && !err.message.includes('duplicate column')) {
-                console.error('Error adding trophies_accepted:', err.message);
+        
+        // Migrate old data: trophies = trophies_accepted (if columns exist)
+        db.run(`UPDATE users SET trophies = COALESCE(trophies_accepted, 0) WHERE trophies = 0`, (err) => {
+            if (err && !err.message.includes('no such column')) {
+                console.error('Error migrating trophies:', err.message);
             }
         });
         

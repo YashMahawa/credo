@@ -12,6 +12,14 @@ initDb();
 app.use(cors());
 app.use(express.json()); // for parsing application/json
 
+// Time synchronization endpoint - returns server time
+app.get('/api/time', (req, res) => {
+    res.json({ 
+        serverTime: new Date().toISOString(),
+        timestamp: Date.now()
+    });
+});
+
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/tasks', require('./routes/tasks'));

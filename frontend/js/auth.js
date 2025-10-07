@@ -2,9 +2,35 @@ const API_URL = 'http://localhost:3000/api';
 
 console.log('Auth.js loaded');
 
+// Time synchronization
+let timeOffset = 0;
+
+// Function to get synchronized current time
+function getCurrentTime() {
+    return new Date(Date.now() + timeOffset);
+}
+
+// Function to synchronize time with server
+async function syncTimeWithServer() {
+    try {
+        const response = await fetch('http://localhost:3000/api/time');
+        const data = await response.json();
+        const serverTime = new Date(data.serverTime).getTime();
+        const clientTime = Date.now();
+        timeOffset = serverTime - clientTime;
+        console.log(`Time synchronized. Offset: ${timeOffset}ms`);
+    } catch (error) {
+        console.error('Failed to sync time with server:', error);
+        timeOffset = 0;
+    }
+}
+
 // Wait for DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     console.log('DOM loaded, initializing auth');
+    
+    // Sync time with server
+    await syncTimeWithServer();
 
     const loginForm = document.getElementById('login');
     const registerForm = document.getElementById('register');

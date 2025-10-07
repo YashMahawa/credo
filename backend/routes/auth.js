@@ -72,7 +72,7 @@ router.post('/login', async (req, res) => {
 router.get('/profile', require('../middleware').authenticateToken, async (req, res) => {
     try {
         const user = await db.query(
-            "SELECT user_id, username, phone_number, roll_number, giving_rating, accepting_rating, giving_rating_count, accepting_rating_count, trophies_given, trophies_accepted, created_at FROM users WHERE user_id = ?",
+            "SELECT user_id, username, phone_number, roll_number, giving_rating, accepting_rating, giving_rating_count, accepting_rating_count, COALESCE(trophies, 0) as trophies, created_at FROM users WHERE user_id = ?",
             [req.user.id]
         );
         if (user.rows.length === 0) {
@@ -81,14 +81,13 @@ router.get('/profile', require('../middleware').authenticateToken, async (req, r
 
         const tasksGiven = await db.query("SELECT COUNT(*) as count FROM tasks WHERE giver_id = ?", [req.user.id]);
         const tasksAccepted = await db.query("SELECT COUNT(*) as count FROM tasks WHERE acceptor_id = ?", [req.user.id]);
-        const tasksCompleted = await db.query("SELECT COUNT(*) as count FROM tasks WHERE (giver_id = ? OR acceptor_id = ?) AND status = 'COMPLETED'", [req.user.id, req.user.id]);
+        const tasksCompleted = await db.query("SELECT COUNT(*) as count FROM tasks WHERE acceptor_id = ? AND status = 'COMPLETED'", [req.user.id]);
         const applications = await db.query("SELECT COUNT(*) as count FROM task_applications WHERE applicant_id = ?", [req.user.id]);
 
         const userData = user.rows[0];
         res.json({
             ...userData,
-            trophies_given: userData.trophies_given || 0,
-            trophies_accepted: userData.trophies_accepted || 0,
+            trophies: userData.trophies || 0,
             stats: {
                 tasks_given: tasksGiven.rows[0].count,
                 tasks_accepted: tasksAccepted.rows[0].count,
@@ -145,34 +144,13 @@ router.get('/ratings', require('../middleware').authenticateToken, async (req, r
 // Get leaderboard
 router.get('/leaderboard', require('../middleware').authenticateToken, async (req, res) => {
     try {
-        const category = req.query.category || 'overall';
-        
-        let orderBy;
-        let selectExtra;
-        
-        switch(category) {
-            case 'giver':
-                orderBy = 'trophies_given DESC, giving_rating DESC';
-                selectExtra = ', COALESCE(trophies_given, 0) as trophy_count';
-                break;
-            case 'acceptor':
-                orderBy = 'trophies_accepted DESC, accepting_rating DESC';
-                selectExtra = ', COALESCE(trophies_accepted, 0) as trophy_count';
-                break;
-            case 'overall':
-            default:
-                orderBy = '(COALESCE(trophies_given, 0) + COALESCE(trophies_accepted, 0)) DESC, ((giving_rating + accepting_rating) / 2) DESC';
-                selectExtra = ', (COALESCE(trophies_given, 0) + COALESCE(trophies_accepted, 0)) as trophy_count';
-                break;
-        }
-        
+        // Leaderboard based on tasks completed successfully (trophies) and overall rating
         const leaderboard = await db.query(
             `SELECT user_id, username, giving_rating, accepting_rating, 
-                    COALESCE(trophies_given, 0) as trophies_given, 
-                    COALESCE(trophies_accepted, 0) as trophies_accepted
-                    ${selectExtra}
+                    COALESCE(trophies, 0) as trophies,
+                    ((giving_rating + accepting_rating) / 2) as overall_rating
              FROM users
-             ORDER BY ${orderBy}
+             ORDER BY trophies DESC, overall_rating DESC
              LIMIT 50`,
             []
         );
