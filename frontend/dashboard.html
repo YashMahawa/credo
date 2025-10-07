@@ -6,24 +6,52 @@
     <title>Dashboard - Credo</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css">
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
-        <div class="container">
+        <div class="container-fluid">
             <a class="navbar-brand" href="#">Credo</a>
-            <div class="d-flex align-items-center">
-                <button class="btn btn-primary me-3" data-bs-toggle="modal" data-bs-target="#createTaskModal">Give Task</button>
-                <div class="dropdown">
-                    <a href="#" class="d-block link-light text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-person-circle fs-4"></i>
-                    </a>
-                    <ul class="dropdown-menu dropdown-menu-dark text-small shadow">
-                        <li><a class="dropdown-item" href="#">My Profile</a></li>
-                        <li><hr class="dropdown-divider"></li>
-                        <li><a class="dropdown-item" id="logout-button">Sign out</a></li>
-                    </ul>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link view-nav active" data-view="allTasks" href="#" onclick="loadView('allTasks'); return false;">All Tasks</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link view-nav" data-view="myGiven" href="#" onclick="loadView('myGiven'); return false;">My Given Tasks</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link view-nav" data-view="myAccepted" href="#" onclick="loadView('myAccepted'); return false;">My Accepted Tasks</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link view-nav" data-view="myApplications" href="#" onclick="loadView('myApplications'); return false;">My Applications</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link view-nav" data-view="profile" href="#" onclick="loadView('profile'); return false;">Profile</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link view-nav" data-view="leaderboard" href="#" onclick="loadView('leaderboard'); return false;">🏆 Leaderboard</a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center">
+                    <button class="btn btn-primary me-3" data-bs-toggle="modal" data-bs-target="#createTaskModal">
+                        <i class="bi bi-plus-circle"></i> Give Task
+                    </button>
+                    <div class="dropdown">
+                        <a href="#" class="d-block link-light text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle fs-4"></i>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark text-small shadow">
+                            <li><a class="dropdown-item" href="#" onclick="loadView('profile'); return false;">My Profile</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" id="logout-button">Sign out</a></li>
+                        </ul>
+                    </div>
                 </div>
             </div>
         </div>
@@ -31,7 +59,19 @@
 
     <!-- Main Content -->
     <div class="container mt-4">
-        <h2 class="mb-4">Open Tasks</h2>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 id="viewHeading">Open Tasks</h2>
+            <!-- Filter Buttons (shown only for All Tasks view) -->
+            <div id="filterContainer" style="display: none;">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-outline-primary filter-btn" data-filter="ALL" onclick="loadView('allTasks', null)">All</button>
+                    <button type="button" class="btn btn-outline-success filter-btn active" data-filter="OPEN" onclick="loadView('allTasks', 'OPEN')">Open</button>
+                    <button type="button" class="btn btn-outline-warning filter-btn" data-filter="IN_PROGRESS" onclick="loadView('allTasks', 'IN_PROGRESS')">In Progress</button>
+                    <button type="button" class="btn btn-outline-primary filter-btn" data-filter="COMPLETED" onclick="loadView('allTasks', 'COMPLETED')">Completed</button>
+                    <button type="button" class="btn btn-outline-secondary filter-btn" data-filter="CANCELLED" onclick="loadView('allTasks', 'CANCELLED')">Cancelled</button>
+                </div>
+            </div>
+        </div>
         <div id="tasks-grid" class="row g-4">
             <!-- Task cards will be inserted here by JavaScript -->
         </div>
@@ -70,7 +110,170 @@
         </div>
     </div>
 
+    <!-- Task Detail Modal (for viewing and applying) -->
+    <div class="modal fade" id="taskDetailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Task Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="taskDetailContent">
+                    <!-- Content loaded dynamically -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-primary" id="applyTaskBtn">Apply for Task</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Task Modal (for task givers) -->
+    <div class="modal fade" id="manageTaskModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Manage Task</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="manageTaskContent">
+                    <!-- Content loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rating Modal -->
+    <div class="modal fade" id="ratingModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Rate User</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="ratingForm">
+                        <input type="hidden" id="rateTaskId">
+                        <input type="hidden" id="rateUserId">
+                        <div class="mb-3">
+                            <label for="ratingValue" class="form-label">Rating (1-5)</label>
+                            <select class="form-select" id="ratingValue" required>
+                                <option value="">Select rating...</option>
+                                <option value="5">5 - Excellent</option>
+                                <option value="4">4 - Good</option>
+                                <option value="3">3 - Average</option>
+                                <option value="2">2 - Below Average</option>
+                                <option value="1">1 - Poor</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="ratingComment" class="form-label">Comment (optional)</label>
+                            <textarea class="form-control" id="ratingComment" rows="3"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Submit Rating</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div class="modal fade" id="profileModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">My Profile</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="profileContent">
+                    <!-- Content loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Task Modal -->
+    <div class="modal fade" id="editTaskModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Task</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editTaskForm">
+                        <input type="hidden" id="editTaskId">
+                        <div class="mb-3">
+                            <label for="editTaskDeadline" class="form-label">Extend Deadline</label>
+                            <input type="datetime-local" class="form-control" id="editTaskDeadline" required>
+                            <small class="text-muted">You can only extend the deadline, not shorten it</small>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editTaskComment" class="form-label">Comment about changes (required)</label>
+                            <textarea class="form-control" id="editTaskComment" rows="3" required placeholder="Explain what changed or any additional instructions..."></textarea>
+                            <small class="text-muted">This will be posted as a comment visible to everyone</small>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Update Task</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Comments Modal -->
+    <div class="modal fade" id="commentsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-chat-dots"></i> Task Comments & Chat</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="commentsTaskId">
+                    <!-- Comments Display -->
+                    <div id="commentsContainer" style="max-height: 400px; overflow-y: auto; margin-bottom: 1rem;">
+                        <!-- Comments loaded dynamically -->
+                    </div>
+                    <!-- New Comment Form -->
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="newComment" placeholder="Type your comment...">
+                        <button class="btn btn-primary" type="button" onclick="addComment(document.getElementById('commentsTaskId').value)">
+                            <i class="bi bi-send"></i> Send
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Profile Modal -->
+    <div class="modal fade" id="editProfileModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Profile</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="editProfileForm">
+                        <div class="mb-3">
+                            <label for="editPhone" class="form-label">Phone Number</label>
+                            <input type="tel" class="form-control" id="editPhone" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="editRoll" class="form-label">Roll Number</label>
+                            <input type="text" class="form-control" id="editRoll" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">Update Profile</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="js/dashboard.js"></script>
 </body>
 </html>
