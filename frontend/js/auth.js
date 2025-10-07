@@ -35,16 +35,52 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Phone number input validation - only allow digits
+    const phoneInput = document.getElementById('register-phone');
+    if (phoneInput) {
+        phoneInput.addEventListener('input', (e) => {
+            // Remove any non-digit characters
+            e.target.value = e.target.value.replace(/\D/g, '');
+            // Limit to 10 digits
+            if (e.target.value.length > 10) {
+                e.target.value = e.target.value.slice(0, 10);
+            }
+        });
+        
+        phoneInput.addEventListener('keypress', (e) => {
+            // Prevent non-digit input
+            if (!/\d/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                e.preventDefault();
+            }
+            // Prevent input if already 10 digits
+            if (e.target.value.length >= 10 && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                e.preventDefault();
+            }
+        });
+    }
+
     // Register Event
     if (registerForm) {
         registerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             console.log('Register form submitted');
             
-            const username = document.getElementById('register-username').value;
+            const username = document.getElementById('register-username').value.trim();
             const password = document.getElementById('register-password').value;
-            const phone_number = document.getElementById('register-phone').value;
-            const roll_number = document.getElementById('register-roll').value;
+            const phone_number = document.getElementById('register-phone').value.trim();
+            const roll_number = document.getElementById('register-roll').value.trim();
+
+            // Validate phone number is exactly 10 digits
+            if (phone_number.length !== 10) {
+                alert('Phone number must be exactly 10 digits');
+                return;
+            }
+
+            // Validate phone number contains only digits
+            if (!/^\d{10}$/.test(phone_number)) {
+                alert('Phone number must contain only digits');
+                return;
+            }
 
             console.log('Registering user:', username);
 

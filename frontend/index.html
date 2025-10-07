@@ -32,16 +32,20 @@
                 <h1 class="text-center mb-4">Create Account</h1>
                 <form id="register">
                     <div class="mb-3">
-                        <input type="text" class="form-control" id="register-username" placeholder="Username" required>
+                        <input type="text" class="form-control" id="register-username" placeholder="Username (max 30 characters)" required maxlength="30">
+                        <small class="text-muted">Max 30 characters</small>
                     </div>
                     <div class="mb-3">
-                        <input type="password" class="form-control" id="register-password" placeholder="Password" required>
+                        <input type="password" class="form-control" id="register-password" placeholder="Password (8-50 characters)" required minlength="8" maxlength="50">
+                        <small class="text-muted">8-50 characters</small>
                     </div>
                     <div class="mb-3">
-                        <input type="tel" class="form-control" id="register-phone" placeholder="Phone Number" required>
+                        <input type="tel" class="form-control" id="register-phone" placeholder="Phone Number (10 digits)" required pattern="[0-9]{10}" maxlength="10">
+                        <small class="text-muted">Exactly 10 digits</small>
                     </div>
                     <div class="mb-3">
-                        <input type="text" class="form-control" id="register-roll" placeholder="Roll Number" required>
+                        <input type="text" class="form-control" id="register-roll" placeholder="Roll Number (max 9 characters)" required maxlength="9">
+                        <small class="text-muted">Max 9 characters</small>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">Register</button>
                 </form>

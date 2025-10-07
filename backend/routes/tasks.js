@@ -3,6 +3,62 @@ const db = require('../db');
 const { authenticateToken } = require('../middleware');
 const router = express.Router();
 
+// Get user's own tasks (given by them) - MUST BE BEFORE /:id
+router.get('/my/given', authenticateToken, async (req, res) => {
+    try {
+        const tasks = await db.query(
+            `SELECT t.*, u.username as acceptor_username
+             FROM tasks t
+             LEFT JOIN users u ON t.acceptor_id = u.user_id
+             WHERE t.giver_id = ?
+             ORDER BY t.created_at DESC`,
+            [req.user.id]
+        );
+        res.json(tasks.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// Get user's accepted tasks - MUST BE BEFORE /:id
+router.get('/my/accepted', authenticateToken, async (req, res) => {
+    try {
+        const tasks = await db.query(
+            `SELECT t.*, u.username as giver_username, u.phone_number as giver_phone
+             FROM tasks t
+             JOIN users u ON t.giver_id = u.user_id
+             WHERE t.acceptor_id = ?
+             ORDER BY t.created_at DESC`,
+            [req.user.id]
+        );
+        res.json(tasks.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
+// Get user's applications - MUST BE BEFORE /:id
+router.get('/my/applications', authenticateToken, async (req, res) => {
+    try {
+        const applications = await db.query(
+            `SELECT a.*, t.title, t.description, t.reward, t.deadline, t.status as task_status,
+                    u.username as giver_username
+             FROM task_applications a
+             JOIN tasks t ON a.task_id = t.task_id
+             JOIN users u ON t.giver_id = u.user_id
+             WHERE a.applicant_id = ?
+             ORDER BY a.applied_at DESC`,
+            [req.user.id]
+        );
+        res.json(applications.rows);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
+
 // Get all tasks with optional status filter
 router.get('/', authenticateToken, async (req, res) => {
     try {
@@ -78,62 +134,6 @@ router.get('/:id', authenticateToken, async (req, res) => {
             task: taskData,
             applications: applicationsWithTrophies
         });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
-    }
-});
-
-// Get user's own tasks (given by them)
-router.get('/my/given', authenticateToken, async (req, res) => {
-    try {
-        const tasks = await db.query(
-            `SELECT t.*, u.username as acceptor_username
-             FROM tasks t
-             LEFT JOIN users u ON t.acceptor_id = u.user_id
-             WHERE t.giver_id = ?
-             ORDER BY t.created_at DESC`,
-            [req.user.id]
-        );
-        res.json(tasks.rows);
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
-    }
-});
-
-// Get user's accepted tasks
-router.get('/my/accepted', authenticateToken, async (req, res) => {
-    try {
-        const tasks = await db.query(
-            `SELECT t.*, u.username as giver_username, u.phone_number as giver_phone
-             FROM tasks t
-             JOIN users u ON t.giver_id = u.user_id
-             WHERE t.acceptor_id = ?
-             ORDER BY t.created_at DESC`,
-            [req.user.id]
-        );
-        res.json(tasks.rows);
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server Error');
-    }
-});
-
-// Get user's applications
-router.get('/my/applications', authenticateToken, async (req, res) => {
-    try {
-        const applications = await db.query(
-            `SELECT a.*, t.title, t.description, t.reward, t.deadline, t.status as task_status,
-                    u.username as giver_username
-             FROM task_applications a
-             JOIN tasks t ON a.task_id = t.task_id
-             JOIN users u ON t.giver_id = u.user_id
-             WHERE a.applicant_id = ?
-             ORDER BY a.applied_at DESC`,
-            [req.user.id]
-        );
-        res.json(applications.rows);
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server Error');
@@ -298,6 +298,8 @@ router.post('/:id/complete', authenticateToken, async (req, res) => {
             return res.status(400).json({ msg: 'Task must be in progress to complete' });
         }
 
+        const acceptorId = task.rows[0].acceptor_id;
+
         // Update task status
         await db.run(
             "UPDATE tasks SET status = 'COMPLETED' WHERE task_id = ?",
@@ -305,23 +307,29 @@ router.post('/:id/complete', authenticateToken, async (req, res) => {
         );
 
         // Award trophies
-        const acceptorId = task.rows[0].acceptor_id;
         if (acceptorId) {
+            console.log(`Awarding trophies: acceptor ${acceptorId}, giver ${giverId}`);
+            
             // Give trophy to acceptor
-            await db.run(
+            const acceptorResult = await db.run(
                 "UPDATE users SET trophies_accepted = COALESCE(trophies_accepted, 0) + 1 WHERE user_id = ?",
                 [acceptorId]
             );
+            console.log('Acceptor trophy update result:', acceptorResult);
+            
             // Give trophy to giver
-            await db.run(
+            const giverResult = await db.run(
                 "UPDATE users SET trophies_given = COALESCE(trophies_given, 0) + 1 WHERE user_id = ?",
                 [giverId]
             );
+            console.log('Giver trophy update result:', giverResult);
+        } else {
+            console.log('No acceptor found, skipping trophy awards');
         }
 
         res.json({ msg: 'Task marked as completed. Trophies awarded!' });
     } catch (err) {
-        console.error(err.message);
+        console.error('Error completing task:', err.message);
         res.status(500).send('Server Error');
     }
 });

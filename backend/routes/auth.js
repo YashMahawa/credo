@@ -8,6 +8,24 @@ const router = express.Router();
 router.post('/register', async (req, res) => {
     const { username, password, phone_number, roll_number } = req.body;
     try {
+        // Check for existing username
+        const existingUser = await db.query("SELECT * FROM users WHERE username = ?", [username]);
+        if (existingUser.rows.length > 0) {
+            return res.status(400).json({ msg: "Username already exists" });
+        }
+        
+        // Check for existing phone number
+        const existingPhone = await db.query("SELECT * FROM users WHERE phone_number = ?", [phone_number]);
+        if (existingPhone.rows.length > 0) {
+            return res.status(400).json({ msg: "Phone number already registered" });
+        }
+        
+        // Check for existing roll number
+        const existingRoll = await db.query("SELECT * FROM users WHERE roll_number = ?", [roll_number]);
+        if (existingRoll.rows.length > 0) {
+            return res.status(400).json({ msg: "Roll number already registered" });
+        }
+        
         const hashedPassword = await bcrypt.hash(password, 10);
         const result = await db.run(
             "INSERT INTO users (username, password_hash, phone_number, roll_number) VALUES (?, ?, ?, ?)",
@@ -16,7 +34,7 @@ router.post('/register', async (req, res) => {
         res.status(201).json({ user_id: result.lastID, username });
     } catch (err) {
         console.error(err.message);
-        res.status(500).send("Server error");
+        res.status(500).json({ msg: "Server error" });
     }
 });
 
@@ -46,7 +64,7 @@ router.post('/login', async (req, res) => {
 
     } catch (err) {
         console.error(err.message);
-        res.status(500).send("Server error");
+        res.status(500).json({ msg: "Server error" });
     }
 });
 

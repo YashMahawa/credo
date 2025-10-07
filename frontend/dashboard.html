@@ -46,7 +46,7 @@
                         <a href="#" class="d-block link-light text-decoration-none dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
                             <i class="bi bi-person-circle fs-4"></i>
                         </a>
-                        <ul class="dropdown-menu dropdown-menu-dark text-small shadow">
+                        <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark text-small shadow">
                             <li><a class="dropdown-item" href="#" onclick="loadView('profile'); return false;">My Profile</a></li>
                             <li><hr class="dropdown-divider"></li>
                             <li><a class="dropdown-item" href="#" id="logout-button">Sign out</a></li>
@@ -72,8 +72,11 @@
                 </div>
             </div>
         </div>
-        <div id="tasks-grid" class="row g-4">
-            <!-- Task cards will be inserted here by JavaScript -->
+        <!-- Container for both task grid and special views (profile, leaderboard) -->
+        <div id="taskContainer">
+            <div id="tasks-grid" class="row g-4">
+                <!-- Task cards will be inserted here by JavaScript -->
+            </div>
         </div>
     </div>
 
@@ -259,11 +262,13 @@
                     <form id="editProfileForm">
                         <div class="mb-3">
                             <label for="editPhone" class="form-label">Phone Number</label>
-                            <input type="tel" class="form-control" id="editPhone" required>
+                            <input type="tel" class="form-control" id="editPhone" required pattern="[0-9]{10}" maxlength="10">
+                            <small class="text-muted">Exactly 10 digits</small>
                         </div>
                         <div class="mb-3">
                             <label for="editRoll" class="form-label">Roll Number</label>
-                            <input type="text" class="form-control" id="editRoll" required>
+                            <input type="text" class="form-control" id="editRoll" required maxlength="9">
+                            <small class="text-muted">Max 9 characters</small>
                         </div>
                         <button type="submit" class="btn btn-primary w-100">Update Profile</button>
                     </form>

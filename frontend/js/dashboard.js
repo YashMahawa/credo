@@ -1,6 +1,6 @@
 const API_URL = 'http://localhost:3000/api';
 const token = localStorage.getItem('token');
-const tasksGrid = document.getElementById('tasks-grid');
+let tasksGrid; // Will be initialized after DOM loads
 const createTaskForm = document.getElementById('create-task-form');
 
 // Redirect to login if no token is found
@@ -39,6 +39,7 @@ async function autoCancelExpiredTasks() {
 // Function to fetch and display open tasks
 const fetchOpenTasks = async () => {
     try {
+        tasksGrid = document.getElementById('tasks-grid');
         const res = await fetch(`${API_URL}/tasks?status=OPEN`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -89,6 +90,7 @@ const fetchOpenTasks = async () => {
 // Function to fetch and display all tasks with filter
 const fetchAllTasks = async (filter = null) => {
     try {
+        tasksGrid = document.getElementById('tasks-grid');
         currentFilter = filter || currentFilter;
         const url = filter ? `${API_URL}/tasks?status=${filter}` : `${API_URL}/tasks`;
         const res = await fetch(url, {
@@ -151,6 +153,7 @@ const fetchAllTasks = async (filter = null) => {
 // Function to fetch and display user's given tasks
 const fetchMyGivenTasks = async () => {
     try {
+        tasksGrid = document.getElementById('tasks-grid');
         const res = await fetch(`${API_URL}/tasks/my/given`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -196,13 +199,13 @@ const fetchMyGivenTasks = async () => {
 // Function to fetch and display user's accepted tasks
 const fetchMyAcceptedTasks = async () => {
     try {
+        tasksGrid = document.getElementById('tasks-grid');
         const res = await fetch(`${API_URL}/tasks/my/accepted`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (!res.ok) throw new Error('Failed to fetch accepted tasks');
         const tasks = await res.json();
 
-        const tasksGrid = document.getElementById('taskContainer');
         tasksGrid.innerHTML = '';
 
         if (tasks.length === 0) {
@@ -256,6 +259,7 @@ const fetchMyAcceptedTasks = async () => {
 // Function to fetch and display user's applications
 const fetchMyApplications = async () => {
     try {
+        tasksGrid = document.getElementById('tasks-grid');
         const res = await fetch(`${API_URL}/tasks/my/applications`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -922,10 +926,52 @@ createTaskForm.addEventListener('submit', async (e) => {
     }
 });
 
+// Edit Profile Form Handler
+document.getElementById('editProfileForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const phone_number = document.getElementById('editPhone').value.trim();
+    const roll_number = document.getElementById('editRoll').value.trim();
+    
+    // Validate phone number is exactly 10 digits
+    if (phone_number.length !== 10 || !/^\d{10}$/.test(phone_number)) {
+        alert('Phone number must be exactly 10 digits');
+        return;
+    }
+    
+    try {
+        const res = await fetch(`${API_URL}/auth/profile`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ phone_number, roll_number })
+        });
+        
+        if (!res.ok) throw new Error('Failed to update profile');
+        
+        const data = await res.json();
+        alert('Profile updated successfully!');
+        
+        // Close modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
+        modal.hide();
+        
+        // Reload profile view if currently on profile
+        if (currentView === 'profile') {
+            loadProfileView();
+        }
+    } catch (err) {
+        console.error(err);
+        alert('Error updating profile: ' + err.message);
+    }
+});
+
 // Load Profile View
 async function loadProfileView() {
     try {
-        const res = await fetch(`${API_URL}/api/auth/profile`, {
+        const res = await fetch(`${API_URL}/auth/profile`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -969,14 +1015,14 @@ async function loadProfileView() {
                     <div class="col-md-6 mb-3">
                         <div class="stats-card" style="background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%); color: #000;">
                             <h5 class="mb-3" style="font-weight: 700;">🏆 Giving Trophies</h5>
-                            <div class="stats-number" style="color: #000; font-size: 3.5rem;">${data.trophies_given || 0}</div>
+                            <div class="stats-number" style="color: #000 !important; -webkit-text-fill-color: #000 !important; font-size: 3.5rem; background: none;">${data.trophies_given || 0}</div>
                             <div class="stats-label" style="color: #333;">Completed as Task Giver</div>
                         </div>
                     </div>
                     <div class="col-md-6 mb-3">
                         <div class="stats-card" style="background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%); color: #000;">
                             <h5 class="mb-3" style="font-weight: 700;">🏆 Accepting Trophies</h5>
-                            <div class="stats-number" style="color: #000; font-size: 3.5rem;">${data.trophies_accepted || 0}</div>
+                            <div class="stats-number" style="color: #000 !important; -webkit-text-fill-color: #000 !important; font-size: 3.5rem; background: none;">${data.trophies_accepted || 0}</div>
                             <div class="stats-label" style="color: #333;">Completed as Task Acceptor</div>
                         </div>
                     </div>
@@ -988,7 +1034,7 @@ async function loadProfileView() {
                         <div class="stats-card">
                             <h5 class="mb-3" style="color: var(--text-color);">Giving Rating</h5>
                             <div class="d-flex align-items-center justify-content-center">
-                                <div class="stats-number me-3">${data.giving_rating.toFixed(1)}</div>
+                                <div class="stats-number me-3" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${data.giving_rating.toFixed(1)}</div>
                                 <div class="text-start">
                                     <div class="mb-1">
                                         ${generateStars(data.giving_rating)}
@@ -1002,7 +1048,7 @@ async function loadProfileView() {
                         <div class="stats-card">
                             <h5 class="mb-3" style="color: var(--text-color);">Accepting Rating</h5>
                             <div class="d-flex align-items-center justify-content-center">
-                                <div class="stats-number me-3">${data.accepting_rating.toFixed(1)}</div>
+                                <div class="stats-number me-3" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${data.accepting_rating.toFixed(1)}</div>
                                 <div class="text-start">
                                     <div class="mb-1">
                                         ${generateStars(data.accepting_rating)}
@@ -1019,25 +1065,25 @@ async function loadProfileView() {
                 <div class="row mb-4">
                     <div class="col-md-3 col-sm-6 mb-3">
                         <div class="stats-card">
-                            <div class="stats-number">${data.stats.tasks_given}</div>
+                            <div class="stats-number" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${data.stats.tasks_given}</div>
                             <div class="stats-label">Tasks Given</div>
                         </div>
                     </div>
                     <div class="col-md-3 col-sm-6 mb-3">
                         <div class="stats-card">
-                            <div class="stats-number">${data.stats.tasks_accepted}</div>
+                            <div class="stats-number" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${data.stats.tasks_accepted}</div>
                             <div class="stats-label">Tasks Accepted</div>
                         </div>
                     </div>
                     <div class="col-md-3 col-sm-6 mb-3">
                         <div class="stats-card">
-                            <div class="stats-number">${data.stats.tasks_completed}</div>
+                            <div class="stats-number" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${data.stats.tasks_completed}</div>
                             <div class="stats-label">Tasks Completed</div>
                         </div>
                     </div>
                     <div class="col-md-3 col-sm-6 mb-3">
                         <div class="stats-card">
-                            <div class="stats-number">${data.stats.applications}</div>
+                            <div class="stats-number" style="background: linear-gradient(135deg, var(--primary-color) 0%, var(--accent-color) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">${data.stats.applications}</div>
                             <div class="stats-label">Applications</div>
                         </div>
                     </div>
@@ -1158,9 +1204,25 @@ async function loadProfileView() {
     }
 }
 
-function openEditProfileModal() {
-    const modal = new bootstrap.Modal(document.getElementById('editProfileModal'));
-    modal.show();
+async function openEditProfileModal() {
+    try {
+        // Fetch current profile data
+        const res = await fetch(`${API_URL}/auth/profile`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to fetch profile');
+        const profile = await res.json();
+        
+        // Pre-fill the form
+        document.getElementById('editPhone').value = profile.phone_number;
+        document.getElementById('editRoll').value = profile.roll_number;
+        
+        const modal = new bootstrap.Modal(document.getElementById('editProfileModal'));
+        modal.show();
+    } catch (err) {
+        console.error(err);
+        alert('Error loading profile data');
+    }
 }
 
 function generateStars(rating) {
@@ -1184,7 +1246,7 @@ function generateStars(rating) {
 // Load user ratings
 async function loadUserRatings() {
     try {
-        const res = await fetch(`${API_URL}/api/auth/ratings`, {
+        const res = await fetch(`${API_URL}/auth/ratings`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -1280,7 +1342,7 @@ async function loadLeaderboardView() {
 
 async function loadLeaderboard(category) {
     try {
-        const res = await fetch(`${API_URL}/api/auth/leaderboard?category=${category}`, {
+        const res = await fetch(`${API_URL}/auth/leaderboard?category=${category}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         
@@ -1389,6 +1451,18 @@ function loadView(view, filter = null) {
     };
     document.getElementById('viewHeading').textContent = headings[view];
     
+    // Get containers
+    const taskContainer = document.getElementById('taskContainer');
+    
+    // Clear and reset containers based on view type
+    if (view === 'profile' || view === 'leaderboard') {
+        // For profile and leaderboard, replace entire taskContainer content
+        taskContainer.innerHTML = '';
+    } else {
+        // For task views, ensure we have a clean tasks-grid
+        taskContainer.innerHTML = '<div id="tasks-grid" class="row g-4"></div>';
+    }
+    
     // Load appropriate data
     switch(view) {
         case 'open':
@@ -1471,5 +1545,25 @@ function getStatusBadge(status) {
 // Initial load
 document.addEventListener('DOMContentLoaded', () => {
     autoCancelExpiredTasks();
-    fetchOpenTasks();
+    loadView('allTasks', 'OPEN'); // Load "All Tasks" view with "OPEN" filter by default
+    
+    // Add phone number validation for edit profile modal
+    const editPhoneInput = document.getElementById('editPhone');
+    if (editPhoneInput) {
+        editPhoneInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.replace(/\D/g, '');
+            if (e.target.value.length > 10) {
+                e.target.value = e.target.value.slice(0, 10);
+            }
+        });
+        
+        editPhoneInput.addEventListener('keypress', (e) => {
+            if (!/\d/.test(e.key) && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                e.preventDefault();
+            }
+            if (e.target.value.length >= 10 && e.key !== 'Backspace' && e.key !== 'Delete' && e.key !== 'Tab' && e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') {
+                e.preventDefault();
+            }
+        });
+    }
 });
