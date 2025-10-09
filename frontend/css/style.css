@@ -358,11 +358,26 @@ body {
 .giver-info {
     font-size: 0.875rem;
     font-weight: 500;
+    color: var(--text-color) !important;
 }
 
 .star {
     color: #fbbf24;
     font-size: 1rem;
+}
+
+/* Override text-muted for better visibility in task cards */
+.task-card .text-muted {
+    color: var(--text-color) !important;
+}
+
+/* Specific styling for task card text elements */
+.task-card .card-text {
+    color: var(--text-color) !important;
+}
+
+.task-card .card-text small {
+    color: var(--text-color) !important;
 }
 
 .modal-content {
